@@ -36,17 +36,19 @@ public class ApkService {
 
     public void decompileApk(MultipartFile apk){
         log.info("Decompiling apk " + apk.getOriginalFilename());
+        String apkFileName = Objects.requireNonNull(apk.getOriginalFilename()).substring(0 , apk.getOriginalFilename().length() - 4) + "_" + LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         try {
-            File logfile = new File(logDir.toString() , Objects.requireNonNull(apk.getOriginalFilename()).substring(0 , apk.getOriginalFilename().length() - 4) + "_" + LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE) + ".txt");
+            File logfile = new File(logDir.toString() , apkFileName + ".txt");
             if(logfile.createNewFile()){
                 log.info("Logfile created");
             }
-            Files.copy(apk.getInputStream() , this.apkDir.resolve(apk.getOriginalFilename()));
-            ProcessBuilder pb = new ProcessBuilder().command("cmd" , "/c" , "apktool" , "d" , apk.getOriginalFilename()  , "-o" , decompiledDir.toFile() + "\\" + Objects.requireNonNull(apk.getOriginalFilename()).substring(0 , apk.getOriginalFilename().length() - 4) + "_" + LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE)).directory(apkDir.toFile()).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
-            pb.start();
+            Files.copy(apk.getInputStream() , this.apkDir.resolve(apkFileName + ".apk"));
+            ProcessBuilder pb = new ProcessBuilder().command("apktool" , "d" , "-f" , apkFileName + ".apk"  , "-o"  , decompiledDir.toFile() + "/" + apkFileName).directory(apkDir.toFile()).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+            Process pc = pb.start();
+            pc.waitFor();
             log.info("Successfully decompiled " + apk.getOriginalFilename());
 
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
