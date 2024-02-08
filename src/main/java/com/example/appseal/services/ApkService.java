@@ -36,7 +36,8 @@ public class ApkService {
 
     public void decompileApk(MultipartFile apk){
         log.info("Decompiling apk " + apk.getOriginalFilename());
-        String apkFileName = Objects.requireNonNull(apk.getOriginalFilename()).substring(0 , apk.getOriginalFilename().length() - 4) + "_" + LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String apkFileName = Objects.requireNonNull(apk.getOriginalFilename()).substring(0 , apk.getOriginalFilename().length() - 4) + "_" + LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HHmmss"));
+        log.info("APK Name : " + apkFileName);
         try {
             File logfile = new File(logDir.toString() , apkFileName + ".txt");
             if(logfile.createNewFile()){

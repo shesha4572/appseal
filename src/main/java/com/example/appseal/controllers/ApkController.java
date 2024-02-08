@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-@RequestMapping("/api/v1/")
+@RequestMapping("/api/v1/apk")
 @RestController
 @RequiredArgsConstructor
 public class ApkController{
@@ -19,7 +19,7 @@ public class ApkController{
     @Autowired
     ApkService apkService;
 
-    @PostMapping(value = "/apk/customCertificate/" , consumes = "multipart/form-data")
+    @PostMapping(value = "/customCertificate/" , consumes = "multipart/form-data")
     public ResponseEntity<?> uploadApkWithCustomSigner(@RequestParam("apk") MultipartFile file , @RequestParam("signerCertificate") MultipartFile certificate , @RequestParam("signerAlias") String alias , @RequestParam("signerPass") String password ){
         apkService.testApk(file);
         return ResponseEntity.ok().build();
