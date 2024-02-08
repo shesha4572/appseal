@@ -25,4 +25,10 @@ public class ApkController{
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping(value = "/noCertificate/" , consumes = "multipart/form-data")
+    public ResponseEntity<?> uploadApkNoSigner(@RequestParam("apk") MultipartFile file){
+        apkService.testApk(file);
+        return ResponseEntity.ok().build();
+    }
+
 }
