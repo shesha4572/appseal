@@ -21,13 +21,21 @@ public class ApkController{
 
     @PostMapping(value = "/customCertificate/" , consumes = "multipart/form-data")
     public ResponseEntity<?> uploadApkWithCustomSigner(@RequestParam("apk") MultipartFile file , @RequestParam("signerCertificate") MultipartFile certificate , @RequestParam("signerAlias") String alias , @RequestParam("signerPass") String password ){
-        apkService.testApk(file);
+        try {
+            apkService.testApk(file);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
         return ResponseEntity.ok().build();
     }
 
     @PostMapping(value = "/noCertificate/" , consumes = "multipart/form-data")
     public ResponseEntity<?> uploadApkNoSigner(@RequestParam("apk") MultipartFile file){
-        apkService.testApk(file);
+        try {
+            apkService.testApk(file);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
         return ResponseEntity.ok().build();
     }
 

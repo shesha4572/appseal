@@ -1,12 +1,20 @@
 package com.example.appseal.services;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,12 +37,77 @@ public class ApkService {
         this.logDir = Paths.get(logDir);
         this.decompiledDir = Paths.get(decompiledDir);
     }
-    public void testApk(MultipartFile file){
-        log.info("File uploaded : " + file.getOriginalFilename());
-        decompileApk(file);
+    public void testApk(MultipartFile file) throws Exception {
+        String decompiledAPKName = decompileApk(file);
+        String mainActivityName = parseMainActivityName(decompiledAPKName);
+        copyOverlayFilesToAPK(decompiledAPKName);
+        addMainActivityNameToOverlay(mainActivityName , decompiledAPKName);
+        editManifest(decompiledAPKName , mainActivityName);
+//        buildNewApk(decompiledAPKName);
+//        reSignAPK(decompiledAPKName);
     }
 
-    public void decompileApk(MultipartFile apk){
+    private void copyOverlayFilesToAPK(String decompiledAPKName) throws IOException {
+        log.info("Copying over overlay files into apk");
+        File sourceDirectory = new File("./src/smali/");
+        File destinationDirectory = new File(decompiledDir + "/" + decompiledAPKName + "/smali/");
+        FileUtils.copyDirectory(sourceDirectory, destinationDirectory);
+        log.info("Successfully copied overlay files into apk");
+    }
+
+    private Document parseManifest(String decompiledAPKName) throws Exception {
+        File apkManifest = new File(decompiledDir.toString() + "/" + decompiledAPKName , "AndroidManifest.xml");
+        if(!apkManifest.exists()){
+            throw new Exception("Manifest File not found");
+        }
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document doc = db.parse(apkManifest);
+        doc.getDocumentElement().normalize();
+        return doc;
+    }
+
+    private void editManifest(String decompiledAPKName , String mainActivityName) throws Exception {
+        Document doc = parseManifest(decompiledAPKName);
+
+
+    }
+
+    private void addMainActivityNameToOverlay(String mainActivityName, String decompiledAPKName) throws IOException {
+        log.info("Replacing main activity name in overlay");
+        Path overlay = Paths.get(decompiledDir.toString() + "/" + decompiledAPKName + "/smali/com/test/ageapp/overlay.smali");
+        Charset charset = StandardCharsets.UTF_8;
+        String content = Files.readString(overlay, charset);
+        String activityName = String.join("/" , mainActivityName.split("\\."));
+        content = content.replaceAll("com/test/ageapp/MainActivity", activityName);
+        Files.writeString(overlay, content, charset);
+        log.info("Successfully replaced main activity in overlay");
+    }
+
+    private String parseMainActivityName(String decompiledAPKName) throws Exception {
+        log.info("Parsing Main Activity Name for " + decompiledAPKName + ".apk");
+        Document doc = parseManifest(decompiledAPKName);
+        Element application = (Element) doc.getElementsByTagName("application").item(0);
+        NodeList activities = application.getElementsByTagName("activity");
+        for (int i = 0; i < activities.getLength(); i++) {
+            Element activity = (Element) activities.item(i);
+            Element intents = (Element) activity.getElementsByTagName("intent-filter").item(0);
+            NodeList actions = intents.getElementsByTagName("action");
+            if(actions.getLength() == 0){
+                continue;
+            }
+            for (int j = 0; j < actions.getLength(); j++) {
+                Element action = (Element) actions.item(0);
+                if(action.getAttribute("android:name").equals("android.intent.action.MAIN")){
+                    log.info("Main activity of " + decompiledAPKName + ".apk is " + activity.getAttribute("android:name"));
+                    return activity.getAttribute("android:name");
+                }
+            }
+        }
+        throw new Exception("Main Activity Resolution failed");
+    }
+
+    public String decompileApk(MultipartFile apk){
         log.info("Decompiling apk " + apk.getOriginalFilename());
         String apkFileName = Objects.requireNonNull(apk.getOriginalFilename()).substring(0 , apk.getOriginalFilename().length() - 4) + "_" + LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HHmmss"));
         log.info("APK Name : " + apkFileName);
@@ -52,5 +125,7 @@ public class ApkService {
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
+        return apkFileName;
+
     }
 }
