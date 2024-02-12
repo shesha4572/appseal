@@ -7,10 +7,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -44,6 +49,7 @@ public class ApkService {
         addMainActivityNameToOverlay(mainActivityName , decompiledAPKName);
         editManifest(decompiledAPKName , mainActivityName);
 //        buildNewApk(decompiledAPKName);
+//        alignAPK(decompiledAPKName);
 //        reSignAPK(decompiledAPKName);
     }
 
@@ -54,7 +60,6 @@ public class ApkService {
         FileUtils.copyDirectory(sourceDirectory, destinationDirectory);
         log.info("Successfully copied overlay files into apk");
     }
-
     private Document parseManifest(String decompiledAPKName) throws Exception {
         File apkManifest = new File(decompiledDir.toString() + "/" + decompiledAPKName , "AndroidManifest.xml");
         if(!apkManifest.exists()){
@@ -68,9 +73,62 @@ public class ApkService {
     }
 
     private void editManifest(String decompiledAPKName , String mainActivityName) throws Exception {
+        log.info("Editing manifest of " + decompiledAPKName);
         Document doc = parseManifest(decompiledAPKName);
-
-
+        Element application = (Element) doc.getElementsByTagName("application").item(0);
+        NodeList activities = application.getElementsByTagName("activity");
+        for (int i = 0; i < activities.getLength(); i++) {
+            Element activity = (Element) activities.item(i);
+            if(activity.getAttribute("android:name").equals(mainActivityName)){
+                NodeList intentsList = activity.getElementsByTagName("intent-filter");
+                if(intentsList.getLength() == 0){
+                    continue;
+                }
+                Element intents = (Element) intentsList.item(0);
+                NodeList actions = intents.getElementsByTagName("action");
+                if(actions.getLength() == 0){
+                    continue;
+                }
+                for (int j = 0; j < actions.getLength(); j++) {
+                    Element action = (Element) actions.item(0);
+                    if(action.getAttribute("android:name").equals("android.intent.action.MAIN")){
+                        log.info("Found main intent of app " + decompiledAPKName);
+                        intents.removeChild(action);
+                    }
+                }
+                NodeList categories = intents.getElementsByTagName("category");
+                for (int j = 0; j < categories.getLength(); j++) {
+                    Element category = (Element) categories.item(j);
+                    if(category.getAttribute("android:name").equals("android.intent.category.LAUNCHER")){
+                        log.info("Changed main intent of " + decompiledAPKName + " to default category");
+                        category.setAttribute("android:name" , "android.intent.category.DEFAULT");
+                    }
+                }
+                log.info("Successfully edited existing main intent of " + decompiledAPKName);
+                log.info("Adding new overlay activity to AndroidManifest.xml of " + decompiledAPKName);
+                Element overlayActivity = doc.createElement("activity");
+                overlayActivity.setAttribute("android:name" , "com.test.ageapp.overlay");
+                overlayActivity.setAttribute("android:exported" , "true");
+                Element overlayIntentFilter = doc.createElement("intent-filter");
+                Element overlayAction = doc.createElement("action");
+                overlayAction.setAttribute("android:name" , "android.intent.action.MAIN");
+                Element overlayCategory = doc.createElement("category");
+                overlayCategory.setAttribute("android:name" , "android.intent.category.LAUNCHER");
+                overlayIntentFilter.appendChild(overlayAction);
+                overlayIntentFilter.appendChild(overlayCategory);
+                overlayActivity.appendChild(overlayIntentFilter);
+                application.appendChild(overlayActivity);
+                log.info("Successfully added overlay activity to AndroidManifest.xml of " + decompiledAPKName);
+                TransformerFactory transformerFactory = TransformerFactory
+                        .newInstance();
+                Transformer transformer = transformerFactory.newTransformer();
+                DOMSource source = new DOMSource(doc);
+                StreamResult result = new StreamResult(new File(decompiledDir.toString() + "/" + decompiledAPKName , "AndroidManifest.xml"));
+                transformer.transform(source, result);
+                log.info("Successfully modified AndroidManifest.xml of " + decompiledAPKName);
+                return;
+            }
+        }
     }
 
     private void addMainActivityNameToOverlay(String mainActivityName, String decompiledAPKName) throws IOException {
@@ -91,7 +149,11 @@ public class ApkService {
         NodeList activities = application.getElementsByTagName("activity");
         for (int i = 0; i < activities.getLength(); i++) {
             Element activity = (Element) activities.item(i);
-            Element intents = (Element) activity.getElementsByTagName("intent-filter").item(0);
+            NodeList intentsList = activity.getElementsByTagName("intent-filter");
+            if(intentsList.getLength() == 0){
+                continue;
+            }
+            Element intents = (Element) intentsList.item(0);
             NodeList actions = intents.getElementsByTagName("action");
             if(actions.getLength() == 0){
                 continue;
