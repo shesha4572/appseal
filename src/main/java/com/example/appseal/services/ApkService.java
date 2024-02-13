@@ -35,12 +35,20 @@ public class ApkService {
     private final Path logDir;
     private final Path decompiledDir;
 
+    private final Path rebuildAPKDir;
+    private final Path androidBuildToolsDir;
 
     @Autowired
-    public ApkService(@Value("${UPLOADED_APK_DIR}") String apkDir , @Value("${LOGFILE_DIR}") String logDir , @Value("${DECOMPILED_APK_DIR}") String decompiledDir){
+    public ApkService(@Value("${UPLOADED_APK_DIR}") String apkDir,
+                      @Value("${LOGFILE_DIR}") String logDir,
+                      @Value("${DECOMPILED_APK_DIR}") String decompiledDir,
+                      @Value("${NEW_APK_DIR}") String rebuildApkDir,
+                      @Value("${BUILD_TOOLS_DIR}") String androidBuildToolsDir){
         this.apkDir = Paths.get(apkDir);
         this.logDir = Paths.get(logDir);
         this.decompiledDir = Paths.get(decompiledDir);
+        this.rebuildAPKDir = Paths.get(rebuildApkDir);
+        this.androidBuildToolsDir = Paths.get(androidBuildToolsDir);
     }
     public void testApk(MultipartFile file) throws Exception {
         String decompiledAPKName = decompileApk(file);
@@ -48,9 +56,27 @@ public class ApkService {
         copyOverlayFilesToAPK(decompiledAPKName);
         addMainActivityNameToOverlay(mainActivityName , decompiledAPKName);
         editManifest(decompiledAPKName , mainActivityName);
-//        buildNewApk(decompiledAPKName);
-//        alignAPK(decompiledAPKName);
+        buildNewApk(decompiledAPKName);
+        alignAPK(decompiledAPKName);
 //        reSignAPK(decompiledAPKName);
+    }
+
+    private void alignAPK(String decompiledAPKName) throws IOException, InterruptedException {
+        log.info("Aligning rebuilt apk " + decompiledAPKName + ".apk");
+        File logfile = new File(logDir.toString() , decompiledAPKName + ".txt");
+        ProcessBuilder pb = new ProcessBuilder().command("zipalign" , "-f" , "-p" , "-v" , "4" , decompiledAPKName + ".apk" , decompiledAPKName + "_aligned.apk").directory(new File(decompiledDir.toFile() , "dist")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+        Process pc = pb.start();
+        pc.waitFor();
+        log.info("Successfully aligned " + decompiledAPKName + "_aligned.apk");
+    }
+
+    private void buildNewApk(String decompiledAPKName) throws IOException, InterruptedException {
+        log.info("Rebuilding apk " + decompiledAPKName + ".apk");
+        File logfile = new File(logDir.toString() , decompiledAPKName + ".txt");
+        ProcessBuilder pb = new ProcessBuilder().command("apktool" , "b" , "-f" , decompiledAPKName).directory(decompiledDir.toFile()).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+        Process pc = pb.start();
+        pc.waitFor();
+        log.info("Successfully rebuilt " + decompiledAPKName + ".apk");
     }
 
     private void copyOverlayFilesToAPK(String decompiledAPKName) throws IOException {
@@ -169,14 +195,14 @@ public class ApkService {
         throw new Exception("Main Activity Resolution failed");
     }
 
-    public String decompileApk(MultipartFile apk){
+    public String decompileApk(MultipartFile apk) throws RuntimeException{
         log.info("Decompiling apk " + apk.getOriginalFilename());
         String apkFileName = Objects.requireNonNull(apk.getOriginalFilename()).substring(0 , apk.getOriginalFilename().length() - 4) + "_" + LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HHmmss"));
         log.info("APK Name : " + apkFileName);
         try {
             File logfile = new File(logDir.toString() , apkFileName + ".txt");
             if(logfile.createNewFile()){
-                log.info("Logfile created");
+                log.info("Logfile created " + logfile.getName());
             }
             Files.copy(apk.getInputStream() , this.apkDir.resolve(apkFileName + ".apk"));
             ProcessBuilder pb = new ProcessBuilder().command("apktool" , "d" , "-f" , apkFileName + ".apk"  , "-o"  , decompiledDir.toFile() + "/" + apkFileName).directory(apkDir.toFile()).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
