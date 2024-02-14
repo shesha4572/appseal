@@ -4,6 +4,9 @@ package com.example.appseal.controllers;
 import com.example.appseal.services.ApkService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,22 +24,30 @@ public class ApkController{
 
     @PostMapping(value = "/customCertificate/" , consumes = "multipart/form-data")
     public ResponseEntity<?> uploadApkWithCustomSigner(@RequestParam("apk") MultipartFile file , @RequestParam("signerCertificate") MultipartFile certificate , @RequestParam("signerAlias") String alias , @RequestParam("signerPass") String password ){
+        Resource apk;
         try {
-            apkService.testApk(file);
+            apk = apkService.testApk(file);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/octet-stream"))
+                .header(HttpHeaders.CONTENT_DISPOSITION , "attachment; filename=\"" + apk.getFilename() + "\"")
+                .body(apk);
     }
 
     @PostMapping(value = "/noCertificate/" , consumes = "multipart/form-data")
     public ResponseEntity<?> uploadApkNoSigner(@RequestParam("apk") MultipartFile file){
+        Resource apk;
         try {
-            apkService.testApk(file);
+            apk = apkService.testApk(file);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/octet-stream"))
+                .header(HttpHeaders.CONTENT_DISPOSITION , "attachment; filename=\"" + apk.getFilename() + "\"")
+                .body(apk);
     }
 
 }

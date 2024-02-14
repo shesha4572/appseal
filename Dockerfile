@@ -4,9 +4,8 @@ WORKDIR /apkseal
 COPY . .
 RUN mkdir /android_sdk
 RUN cp -r ./src/cmdline-tools /android_sdk/
-RUN cp ./src/apktool/apktool /usr/local/bin/
 RUN cp ./src/apktool/apktool.jar /usr/local/bin/
-RUN sed -i -e 's/\r$//' /usr/local/bin/apktool
+RUN wget https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -P /usr/local/bin/
 RUN chmod +x /usr/local/bin/apktool
 RUN chmod +x /usr/local/bin/apktool.jar
 ENV ANDROID_SDK_ROOT="/android_sdk"

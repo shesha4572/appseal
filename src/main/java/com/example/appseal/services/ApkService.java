@@ -3,13 +3,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
@@ -18,6 +18,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -36,21 +37,18 @@ public class ApkService {
     private final Path decompiledDir;
 
     private final Path rebuildAPKDir;
-    private final Path androidBuildToolsDir;
 
     @Autowired
     public ApkService(@Value("${UPLOADED_APK_DIR}") String apkDir,
                       @Value("${LOGFILE_DIR}") String logDir,
                       @Value("${DECOMPILED_APK_DIR}") String decompiledDir,
-                      @Value("${NEW_APK_DIR}") String rebuildApkDir,
-                      @Value("${BUILD_TOOLS_DIR}") String androidBuildToolsDir){
+                      @Value("${NEW_APK_DIR}") String rebuildApkDir){
         this.apkDir = Paths.get(apkDir);
         this.logDir = Paths.get(logDir);
         this.decompiledDir = Paths.get(decompiledDir);
         this.rebuildAPKDir = Paths.get(rebuildApkDir);
-        this.androidBuildToolsDir = Paths.get(androidBuildToolsDir);
     }
-    public void testApk(MultipartFile file) throws Exception {
+    public Resource testApk(MultipartFile file) throws Exception {
         String decompiledAPKName = decompileApk(file);
         String mainActivityName = parseMainActivityName(decompiledAPKName);
         copyOverlayFilesToAPK(decompiledAPKName);
@@ -58,13 +56,26 @@ public class ApkService {
         editManifest(decompiledAPKName , mainActivityName);
         buildNewApk(decompiledAPKName);
         alignAPK(decompiledAPKName);
-//        reSignAPK(decompiledAPKName);
+        Resource r = serveNewAPK(decompiledAPKName);
+        if(r == null){
+            throw new Exception("Error fetching rebuilt apk");
+        }
+        return r;
+    }
+
+    private Resource serveNewAPK(String decompiledAPKName) throws MalformedURLException {
+        Path newAPK = rebuildAPKDir.resolve(decompiledAPKName + "_aligned.apk");
+        Resource newApkResource = new UrlResource(newAPK.toUri());
+        if(newApkResource.isReadable()){
+            return newApkResource;
+        }
+        return null;
     }
 
     private void alignAPK(String decompiledAPKName) throws IOException, InterruptedException {
         log.info("Aligning rebuilt apk " + decompiledAPKName + ".apk");
         File logfile = new File(logDir.toString() , decompiledAPKName + ".txt");
-        ProcessBuilder pb = new ProcessBuilder().command("zipalign" , "-f" , "-p" , "-v" , "4" , decompiledAPKName + ".apk" , decompiledAPKName + "_aligned.apk").directory(new File(decompiledDir.toFile() , "dist")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+        ProcessBuilder pb = new ProcessBuilder().command("zipalign" , "-f" , "-p" , "-v" , "4" , decompiledAPKName + ".apk" , rebuildAPKDir + "/" + decompiledAPKName + "_aligned.apk").directory(new File(decompiledDir.toFile() , decompiledAPKName + "/dist")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
         Process pc = pb.start();
         pc.waitFor();
         log.info("Successfully aligned " + decompiledAPKName + "_aligned.apk");
