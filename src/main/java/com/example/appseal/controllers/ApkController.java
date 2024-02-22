@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-@RequestMapping("/api/v1/apk")
+@RequestMapping("/api/v1/secure")
 @RestController
 @RequiredArgsConstructor
 public class ApkController{
@@ -22,11 +22,11 @@ public class ApkController{
     @Autowired
     ApkService apkService;
 
-    @PostMapping(value = "/customCertificate/" , consumes = "multipart/form-data")
-    public ResponseEntity<?> uploadApkWithCustomSigner(@RequestParam("apk") MultipartFile file , @RequestParam("signerCertificate") MultipartFile certificate , @RequestParam("signerAlias") String alias , @RequestParam("signerPass") String password ){
+    @PostMapping(value = "/withScreenProtection/" , consumes = "multipart/form-data")
+    public ResponseEntity<?> secureApkWithScreenProtection(@RequestParam("apk") MultipartFile file , @RequestParam("signerCertificate") MultipartFile certificate , @RequestParam("signerAlias") String alias , @RequestParam("signerPass") String password ){
         Resource apk;
         try {
-            apk = apkService.testApk(file);
+            apk = apkService.secureApk(file , true);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
@@ -36,11 +36,11 @@ public class ApkController{
                 .body(apk);
     }
 
-    @PostMapping(value = "/noCertificate/" , consumes = "multipart/form-data")
-    public ResponseEntity<?> uploadApkNoSigner(@RequestParam("apk") MultipartFile file){
+    @PostMapping(value = "/noScreenProtection/" , consumes = "multipart/form-data")
+    public ResponseEntity<?> secureApkWithoutScreenProtection(@RequestParam("apk") MultipartFile file){
         Resource apk;
         try {
-            apk = apkService.testApk(file);
+            apk = apkService.secureApk(file , false);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(e.getMessage());
         }

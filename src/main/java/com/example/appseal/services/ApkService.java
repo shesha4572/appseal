@@ -48,12 +48,12 @@ public class ApkService {
         this.decompiledDir = Paths.get(decompiledDir);
         this.rebuildAPKDir = Paths.get(rebuildApkDir);
     }
-    public Resource testApk(MultipartFile file) throws Exception {
+    public Resource secureApk(MultipartFile file , Boolean screenProtectionFlag) throws Exception {
         String decompiledAPKName = decompileApk(file);
         String mainActivityName = parseMainActivityName(decompiledAPKName);
-        copyOverlayFilesToAPK(decompiledAPKName);
+        copyOverlayFilesToAPK(decompiledAPKName); //todo add screenshot application smali file
         addMainActivityNameToOverlay(mainActivityName , decompiledAPKName);
-        editManifest(decompiledAPKName , mainActivityName);
+        editManifest(decompiledAPKName , mainActivityName , screenProtectionFlag); //Application name is .SecureApplication
         buildNewApk(decompiledAPKName);
         alignAPK(decompiledAPKName);
         Resource r = serveNewAPK(decompiledAPKName);
@@ -109,10 +109,17 @@ public class ApkService {
         return doc;
     }
 
-    private void editManifest(String decompiledAPKName , String mainActivityName) throws Exception {
+    private void editManifest(String decompiledAPKName , String mainActivityName , Boolean screenProtectionFlag) throws Exception {
         log.info("Editing manifest of " + decompiledAPKName);
         Document doc = parseManifest(decompiledAPKName);
         Element application = (Element) doc.getElementsByTagName("application").item(0);
+        if(screenProtectionFlag){
+            log.info("Screenshot and record protection flag is enabled for " + decompiledAPKName);
+            application.setAttribute("android:name" , ".SecureApplication");
+        }
+        else {
+            log.info("Screenshot and record protection flag is disabled for " + decompiledAPKName);
+        }
         NodeList activities = application.getElementsByTagName("activity");
         for (int i = 0; i < activities.getLength(); i++) {
             Element activity = (Element) activities.item(i);
