@@ -23,7 +23,7 @@ public class ApkController{
     ApkService apkService;
 
     @PostMapping(value = "/withScreenProtection/" , consumes = "multipart/form-data")
-    public ResponseEntity<?> secureApkWithScreenProtection(@RequestParam("apk") MultipartFile file , @RequestParam("signerCertificate") MultipartFile certificate , @RequestParam("signerAlias") String alias , @RequestParam("signerPass") String password ){
+    public ResponseEntity<?> secureApkWithScreenProtection(@RequestParam("apk") MultipartFile file ){
         Resource apk;
         try {
             apk = apkService.secureApk(file , true);

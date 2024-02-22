@@ -51,9 +51,9 @@ public class ApkService {
     public Resource secureApk(MultipartFile file , Boolean screenProtectionFlag) throws Exception {
         String decompiledAPKName = decompileApk(file);
         String mainActivityName = parseMainActivityName(decompiledAPKName);
-        copyOverlayFilesToAPK(decompiledAPKName); //todo add screenshot application smali file
+        copyOverlayFilesToAPK(decompiledAPKName);
         addMainActivityNameToOverlay(mainActivityName , decompiledAPKName);
-        editManifest(decompiledAPKName , mainActivityName , screenProtectionFlag); //Application name is .SecureApplication
+        editManifest(decompiledAPKName , mainActivityName , screenProtectionFlag);
         buildNewApk(decompiledAPKName);
         alignAPK(decompiledAPKName);
         Resource r = serveNewAPK(decompiledAPKName);
@@ -115,7 +115,11 @@ public class ApkService {
         Element application = (Element) doc.getElementsByTagName("application").item(0);
         if(screenProtectionFlag){
             log.info("Screenshot and record protection flag is enabled for " + decompiledAPKName);
-            application.setAttribute("android:name" , ".SecureApplication");
+            if(application.hasAttribute("android:name")){
+                log.error("Application class already defined for " + decompiledAPKName + ". Aborting");
+                throw new Exception("App already has a defined Application class");
+            }
+            application.setAttribute("android:name" , "com.test.seal.ScreenShot");
         }
         else {
             log.info("Screenshot and record protection flag is disabled for " + decompiledAPKName);
@@ -151,7 +155,7 @@ public class ApkService {
                 log.info("Successfully edited existing main intent of " + decompiledAPKName);
                 log.info("Adding new overlay activity to AndroidManifest.xml of " + decompiledAPKName);
                 Element overlayActivity = doc.createElement("activity");
-                overlayActivity.setAttribute("android:name" , "com.test.ageapp.overlay");
+                overlayActivity.setAttribute("android:name" , "com.test.seal.overlay");
                 overlayActivity.setAttribute("android:exported" , "true");
                 Element overlayIntentFilter = doc.createElement("intent-filter");
                 Element overlayAction = doc.createElement("action");
@@ -177,11 +181,11 @@ public class ApkService {
 
     private void addMainActivityNameToOverlay(String mainActivityName, String decompiledAPKName) throws IOException {
         log.info("Replacing main activity name in overlay");
-        Path overlay = Paths.get(decompiledDir.toString() + "/" + decompiledAPKName + "/smali/com/test/ageapp/overlay.smali");
+        Path overlay = Paths.get(decompiledDir.toString() + "/" + decompiledAPKName + "/smali/com/test/seal/overlay.smali");
         Charset charset = StandardCharsets.UTF_8;
         String content = Files.readString(overlay, charset);
         String activityName = String.join("/" , mainActivityName.split("\\."));
-        content = content.replaceAll("com/test/ageapp/MainActivity", activityName);
+        content = content.replaceAll("com/test/seal/MainActivity", activityName);
         Files.writeString(overlay, content, charset);
         log.info("Successfully replaced main activity in overlay");
     }
