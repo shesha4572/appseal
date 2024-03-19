@@ -36,17 +36,20 @@ public class ApkService {
     private final Path logDir;
     private final Path decompiledDir;
 
+    private final Path obfuscateDir;
     private final Path rebuildAPKDir;
 
     @Autowired
     public ApkService(@Value("${UPLOADED_APK_DIR}") String apkDir,
                       @Value("${LOGFILE_DIR}") String logDir,
                       @Value("${DECOMPILED_APK_DIR}") String decompiledDir,
-                      @Value("${NEW_APK_DIR}") String rebuildApkDir){
+                      @Value("${NEW_APK_DIR}") String rebuildApkDir,
+                      @Value("${OBFS_APK_DIR}") String obfuscateDir){
         this.apkDir = Paths.get(apkDir);
         this.logDir = Paths.get(logDir);
         this.decompiledDir = Paths.get(decompiledDir);
         this.rebuildAPKDir = Paths.get(rebuildApkDir);
+        this.obfuscateDir = Paths.get(obfuscateDir);
     }
     public Resource secureApk(MultipartFile file , Boolean screenProtectionFlag) throws Exception {
         String decompiledAPKName = decompileApk(file);
@@ -55,12 +58,23 @@ public class ApkService {
         addMainActivityNameToOverlay(mainActivityName , decompiledAPKName);
         editManifest(decompiledAPKName , mainActivityName , screenProtectionFlag);
         buildNewApk(decompiledAPKName);
+        obfuscateNewApk(decompiledAPKName);
         alignAPK(decompiledAPKName);
         Resource r = serveNewAPK(decompiledAPKName);
         if(r == null){
             throw new Exception("Error fetching rebuilt apk");
         }
         return r;
+    }
+
+    private void obfuscateNewApk(String decompiledAPKName) throws IOException, InterruptedException {
+        log.info("Obfuscating rebuilt apk " + decompiledAPKName + ".apk");
+        File logfile = new File(logDir.toString() , decompiledAPKName + ".txt");
+        ProcessBuilder pb = new ProcessBuilder().command("python3" , "-m" , "obfuscapk.cli " , "-i" , "-o" , "ClassRename" , "-o" , "ConstStringEncryption" , "-o" , "DebugRemoval" , "-o" , "FieldRename" , "-o" , "MethodRename" , "-o" , "Rebuild" , "-w" , "/tmp" , "-d" , obfuscateDir + "/" + decompiledAPKName + "_obfs.apk" , decompiledDir + "/dist/" + decompiledAPKName + ".apk").directory(new File("/obfs/src")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+        Process pc = pb.start();
+        pc.waitFor();
+        log.info("Successfully obfuscated " + decompiledAPKName + ".apk");
+
     }
 
     private Resource serveNewAPK(String decompiledAPKName) throws MalformedURLException {
@@ -73,9 +87,9 @@ public class ApkService {
     }
 
     private void alignAPK(String decompiledAPKName) throws IOException, InterruptedException {
-        log.info("Aligning rebuilt apk " + decompiledAPKName + ".apk");
+        log.info("Aligning rebuilt apk " + decompiledAPKName + "_obfs.apk");
         File logfile = new File(logDir.toString() , decompiledAPKName + ".txt");
-        ProcessBuilder pb = new ProcessBuilder().command("zipalign" , "-f" , "-p" , "-v" , "4" , decompiledAPKName + ".apk" , rebuildAPKDir + "/" + decompiledAPKName + "_aligned.apk").directory(new File(decompiledDir.toFile() , decompiledAPKName + "/dist")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+        ProcessBuilder pb = new ProcessBuilder().command("zipalign" , "-f" , "-p" , "-v" , "4" , decompiledAPKName + "_obfs.apk" , rebuildAPKDir + "/" + decompiledAPKName + "_aligned.apk").directory(obfuscateDir.toFile()).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
         Process pc = pb.start();
         pc.waitFor();
         log.info("Successfully aligned " + decompiledAPKName + "_aligned.apk");
