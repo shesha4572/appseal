@@ -1,6 +1,7 @@
 package com.example.appseal.services;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.jline.utils.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -70,7 +71,8 @@ public class ApkService {
     private void obfuscateNewApk(String decompiledAPKName) throws IOException, InterruptedException {
         log.info("Obfuscating rebuilt apk " + decompiledAPKName + ".apk");
         File logfile = new File(logDir.toString() , decompiledAPKName + ".txt");
-        ProcessBuilder pb = new ProcessBuilder().command("python3" , "-m" , "obfuscapk.cli " , "-i" , "-o" , "ClassRename" , "-o" , "ConstStringEncryption" , "-o" , "DebugRemoval" , "-o" , "FieldRename" , "-o" , "MethodRename" , "-o" , "Rebuild" , "-w" , "/tmp" , "-d" , obfuscateDir + "/" + decompiledAPKName + "_obfs.apk" , decompiledDir + "/dist/" + decompiledAPKName + ".apk").directory(new File("/obfs/src")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+        Log.info(decompiledDir + "/" +  decompiledAPKName + "/dist/" + decompiledAPKName + ".apk");
+        ProcessBuilder pb = new ProcessBuilder().command("python3" , "-m" , "obfuscapk.cli "  , "-o" , "ClassRename" , "-o" , "ConstStringEncryption" , "-o" , "DebugRemoval" , "-o" , "FieldRename" , "-o" , "MethodRename" , "-o" , "Rebuild" , "-w" , "/tmp" , "-d" , obfuscateDir + "/" + decompiledAPKName + "_obfs.apk" , "-i" , decompiledDir + "/" +  decompiledAPKName + "/dist/" + decompiledAPKName + ".apk").directory(new File("/obfs/src")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
         Process pc = pb.start();
         pc.waitFor();
         log.info("Successfully obfuscated " + decompiledAPKName + ".apk");

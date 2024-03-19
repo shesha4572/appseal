@@ -22,6 +22,6 @@ RUN mkdir /obfuscated
 RUN git clone https://github.com/Mobile-IoT-Security-Lab/Obfuscapk.git ../obfs
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install -y python3 python3-pip
-RUN python3 -m pip install -r ../obfs/src/requirements.txt
+RUN python3 -m pip install -r /obfs/src/requirements.txt
 RUN mvn clean install -Dmaven.test.skip=true
 CMD mvn spring-boot:run
