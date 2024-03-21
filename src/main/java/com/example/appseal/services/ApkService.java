@@ -21,7 +21,6 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.charset.Charset;
@@ -31,7 +30,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Objects;
 
 @Service
@@ -73,9 +71,8 @@ public class ApkService {
         return r;
     }
 
-    private void obfuscateNewApk(String decompiledAPKName) throws IOException, InterruptedException {
+    private void obfuscateNewApk(String decompiledAPKName) throws IOException {
         log.info("Obfuscating rebuilt apk " + decompiledAPKName + ".apk");
-        File logfile = new File(logDir.toString() , decompiledAPKName + ".txt");
 //        ArrayList<String> list = new ArrayList<>();
 //        list.add("/usr/bin/python");
 //        ProcessBuilder pb = new ProcessBuilder(list).command("/apkseal/src/scripts/obfs.sh" , obfuscateDir.toString() , decompiledDir.toString() , decompiledDir.toString()).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
