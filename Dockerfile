@@ -10,6 +10,7 @@ RUN wget -c https://github.com/TamilanPeriyasamy/BundleDecompiler/blob/master/bu
 RUN chmod +x /usr/local/bin/apktool
 RUN chmod +x /usr/local/bin/apktool.jar
 RUN chmod +x /usr/local/bin/BundleDecompiler.jar
+RUN chmod +x ./src/scripts/obfs.sh
 ENV ANDROID_SDK_ROOT="/android_sdk"
 ENV PATH="/android_sdk/cmdline-tools/bin:$PATH"
 RUN echo y | sdkmanager --sdk_root=$ANDROID_SDK_ROOT "build-tools;34.0.0"

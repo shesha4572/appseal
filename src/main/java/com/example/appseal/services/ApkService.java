@@ -1,7 +1,9 @@
 package com.example.appseal.services;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.exec.CommandLine;
+import org.apache.commons.exec.DefaultExecutor;
+import org.apache.commons.exec.PumpStreamHandler;
 import org.apache.commons.io.FileUtils;
-import org.jline.utils.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -17,7 +19,9 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.charset.Charset;
@@ -27,6 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Objects;
 
 @Service
@@ -71,12 +76,30 @@ public class ApkService {
     private void obfuscateNewApk(String decompiledAPKName) throws IOException, InterruptedException {
         log.info("Obfuscating rebuilt apk " + decompiledAPKName + ".apk");
         File logfile = new File(logDir.toString() , decompiledAPKName + ".txt");
-        Log.info(decompiledDir + "/" +  decompiledAPKName + "/dist/" + decompiledAPKName + ".apk");
-        ProcessBuilder pb = new ProcessBuilder().command("python3" , "-m" , "obfuscapk.cli "  , "-o" , "ClassRename" , "-o" , "ConstStringEncryption" , "-o" , "DebugRemoval" , "-o" , "FieldRename" , "-o" , "MethodRename" , "-o" , "Rebuild" , "-w" , "/tmp" , "-d" , obfuscateDir + "/" + decompiledAPKName + "_obfs.apk" , "-i" , decompiledDir + "/" +  decompiledAPKName + "/dist/" + decompiledAPKName + ".apk").directory(new File("/obfs/src")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
-        Process pc = pb.start();
-        pc.waitFor();
-        log.info("Successfully obfuscated " + decompiledAPKName + ".apk");
+//        ArrayList<String> list = new ArrayList<>();
+//        list.add("/usr/bin/python");
+//        ProcessBuilder pb = new ProcessBuilder(list).command("/apkseal/src/scripts/obfs.sh" , obfuscateDir.toString() , decompiledDir.toString() , decompiledDir.toString()).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+//        //ProcessBuilder pb = new ProcessBuilder().command("python3" , "-m" , "obfuscapk.cli "  , "-o" , "ClassRename" , "-o" , "ConstStringEncryption" , "-o" , "DebugRemoval" , "-o" , "FieldRename" , "-o" , "MethodRename" , "-o" , "Rebuild" , "-w" , "/tmp" , "-d" , obfuscateDir + "/" + decompiledAPKName + "_obfs.apk" , "-i" , "-p" , decompiledDir + "/" +  decompiledAPKName + "/dist/" + decompiledAPKName + ".apk").directory(new File("/obfs/src")).redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
+//        Process pc = pb.redirectErrorStream(true).start();
+//        pc.getInputStream().transferTo(System.out);
+//        pc.waitFor();
+        String line = "python3 -m obfuscapk.cli -o ClassRename -o ConstStringEncryption -o DebugRemoval -o FieldRename -o MethodRename -o Rebuild -w /tmp -d "  + obfuscateDir + "/" + decompiledAPKName + "_obfs.apk -i " + decompiledDir + "/" + decompiledAPKName + "/dist/" + decompiledAPKName + ".apk";
+        CommandLine cmdLine = CommandLine.parse(line);
 
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PumpStreamHandler streamHandler = new PumpStreamHandler(outputStream);
+
+        DefaultExecutor executor = new DefaultExecutor();
+        executor.setStreamHandler(streamHandler);
+        executor.setWorkingDirectory(new File("/obfs/src"));
+        int exitCode = executor.execute(cmdLine);
+        if(exitCode == 0) {
+            log.info("Successfully obfuscated " + decompiledAPKName + ".apk");
+        }
+        else {
+            log.error("Error while obfuscating " + decompiledAPKName + ".apk");
+            log.error(String.valueOf(outputStream));
+        }
     }
 
     private Resource serveNewAPK(String decompiledAPKName) throws MalformedURLException {
